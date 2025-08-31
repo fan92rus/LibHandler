@@ -21,20 +21,11 @@ namespace LibHandler.Util
             HttpResponseMessage response = await httpClient.GetAsync(request);
             if (response.IsSuccessStatusCode)
             {
-                string res = await response.Content.ReadAsStringAsync();
-                HtmlDocument html = new HtmlDocument();
+                var res = await response.Content.ReadAsStringAsync();
+                var html = new HtmlDocument();
                 html.LoadHtml(res);
 
-                HtmlNodeCollection tables = html.DocumentNode.SelectNodes("//table");
-                HtmlNodeCollection rows = tables[^2].SelectNodes("tr");
-                rows.RemoveAt(0);
-
-                List<string> ids = new List<string>();
-
-                foreach (HtmlNode n in rows)
-                    ids.Add(n.ChildNodes[0].InnerHtml);
-
-                return ids;
+                return ExtractEditionIds(html);
             }
             else
             {
@@ -42,13 +33,38 @@ namespace LibHandler.Util
                 return new List<string>();
             }
         }
+        
+        public static List<string> ExtractEditionIds(HtmlDocument doc)
+        {
+            var ids = new HashSet<string>();
+
+            // ищем все ссылки <a href="edition.php?id=...">
+            var nodes = doc.DocumentNode.SelectNodes("//a[contains(@href,'edition.php?id=')]");
+
+            if (nodes != null)
+            {
+                foreach (var node in nodes)
+                {
+                    var href = node.GetAttributeValue("href", "");
+                    var queryIndex = href.IndexOf("id=");
+                    if (queryIndex >= 0)
+                    {
+                        var id = href.Substring(queryIndex + 3);
+                        ids.Add(id);
+                    }
+                }
+            }
+
+            return ids.ToList();
+        }
+
         public async Task<string> GetJSONData(List<string> ids)
         {
             ReloadUrls();
 
             string idString = string.Join(",", ids);
 
-            HttpResponseMessage response = await httpClient.GetAsync($"json.php?ids={idString}&fields=*");
+            HttpResponseMessage response = await httpClient.GetAsync($"json.php?object=e&addkeys=*&ids={idString}");
 
             if (response.IsSuccessStatusCode)
             {
@@ -60,34 +76,42 @@ namespace LibHandler.Util
                 return string.Empty;
             }
         }
-        public async Task<string> GetDownloadLink(string md5)
+        public async Task<Dictionary<string, string>> GetDownloadLink(string id)
         {
             Mirror m = MirrorHandler.MainDownloadMirror;
 
             ReloadUrls();
 
-            HttpResponseMessage response = await httpDownload.GetAsync(m.Path + md5);
+            var response = await httpDownload.GetAsync($"/edition.php?id={id}");
             
             if (response.IsSuccessStatusCode)
             {
                 string res = await response.Content.ReadAsStringAsync();
                 HtmlDocument html = new HtmlDocument();
                 html.LoadHtml(res);
+                var links = new Dictionary<string, string>();
 
-                if (m.Url.Equals("library.lol"))
+                var nodes = html.DocumentNode.SelectNodes("//table[@id='tablelibgen']//a[@title]");
+
+                if (nodes != null)
                 {
-                    HtmlNode download = html.DocumentNode.SelectSingleNode($"//div[@id='download']");
-                    return download.SelectSingleNode("h2/a").Attributes["href"].Value;
+                    foreach (var node in nodes)
+                    {
+                        var title = node.GetAttributeValue("title", "").Trim();
+                        var href = node.GetAttributeValue("href", "").Trim();
+
+                        if (!string.IsNullOrEmpty(title) && !string.IsNullOrEmpty(href))
+                        {
+                            links[title] = href;
+                        }
+                    }
                 }
-                else
-                {
-                    HtmlNode download = html.DocumentNode.SelectSingleNode($"//td[@bgcolor='#A9F5BC']/a");
-                    return m.FullUrl + "/" + download.Attributes["href"].Value;
-                }
+
+                return links;
             }
             else
             {
-                return $"Error Getting Downloadlink.({response.Content})";
+                return new Dictionary<string, string>();
             }   
         }
 

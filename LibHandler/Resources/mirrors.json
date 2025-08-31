@@ -1,7 +1,12 @@
 ﻿[
   {
     "Url": "libgen.is",
-    "FullUrl": "https://libgen.gs/",
+    "FullUrl": "https://libgen.gs",
     "MirrorType": "SearchMirror"
+  },
+  {
+    "Url": "libgen.is",
+    "FullUrl": "https://libgen.gs",
+    "MirrorType": "DownloadMirror"
   }
 ]

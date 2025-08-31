@@ -25,32 +25,28 @@ namespace LibHandler
             => handler.GetJSONData(ids).Result;
 
         /// <summary>
-        /// Returns the download url for a given md5 hash.
-        /// </summary>
-        /// <param name="md5">MD5 hash of a book</param>
-        /// <returns></returns>
-        public static string GetDownloadLinkByMD5(string md5)
-           => handler.GetDownloadLink(md5).Result;
-
-        /// <summary>
         /// Returns the download url for a book.
         /// </summary>
         /// <param name="book">Book that should be downloaded</param>
         /// <returns></returns>
-        public static string GetDownloadLink(Book book)
-           => handler.GetDownloadLink(book.md5).Result;
+        public static Dictionary<string, string> GetDownloadLinks(string id)
+        {
+            return handler.GetDownloadLink(id).Result;
+        }
 
         /// <summary>
         /// Returns a list of searched books.
         /// </summary>
         /// <param name="request">Request string. Can be constructed with GetRequestFormat()</param>
         /// <returns></returns>
-        public static List<Book> GetBooks(string request)
+        public static ArticlesRoot GetBooks(string request)
         {
-            List<string> ids = GetIDs(request);
-            string jsonData = GetJSONData(ids);
-            return JsonSerializer.Deserialize<List<Book>>(jsonData) ?? new List<Book>();
+            var ids = GetIDs(request);
+            var jsonData = GetJSONData(ids);
+            return JsonSerializer.Deserialize<ArticlesRoot>(jsonData,
+                new JsonSerializerOptions() { PropertyNameCaseInsensitive = true }) ?? new ArticlesRoot();
         }
+
         /// <summary>
         /// Returns the current mirror.
         /// </summary>
@@ -73,8 +69,7 @@ namespace LibHandler
         /// <param name="results">Amount of results (25, 50, 100)</param>
         /// <returns></returns>
         public static string GetRequestFormat(SearchField field, string value, int results) =>
-            $"{MirrorHandler.GetMainMirror(MirrorType.SearchMirror).FullUrl}/search.php?req={value}&res={results}&column={field.ToString().ToLower()}";
-
+            $"{MirrorHandler.GetMainMirror(MirrorType.SearchMirror).FullUrl}/index.php?req={value}&res={results}&column={field.ToString().ToLower()}";
     }
 
     public enum SearchField
